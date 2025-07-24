@@ -1,4 +1,4 @@
-#!/home/leathether/Documents/Hackathons/linkedin-job-scraper/backend/venv/bin/python3
+#!/home/masterhacker2019/Documents/web-agency/internal/Job-Board-Scraper/backend/venv/bin/python3
 # -*- coding: utf-8 -*-
 import re
 import sys

@@ -19,7 +19,7 @@ npm run dev
 ```
 
 The application will be available at:
-- Frontend: http://localhost:3000
+- Frontend: http://localhost:3001
 - Backend API: http://localhost:8000
 
 ## Features

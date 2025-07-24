@@ -14,6 +14,7 @@ import logging
 import os
 import glob
 import random
+from selenium.webdriver.chrome.options import Options
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -24,57 +25,16 @@ class LinkedInJobScraper:
         self.jobs_per_page = 25
 
     def setup_driver(self):
-        try:
-            options = webdriver.ChromeOptions()
-            options.add_argument('--headless=new')
-            options.add_argument('--no-sandbox')
-            options.add_argument('--disable-dev-shm-usage')
-            options.add_argument('--disable-gpu')
-            options.add_argument('--window-size=1920,1080')
-            options.add_argument('--disable-notifications')
-            options.add_argument('--lang=en-US')
-            
-            # Add more realistic user agent
-            options.add_argument('user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36')
-            
-            # Additional options to avoid detection
-            options.add_argument('--disable-blink-features=AutomationControlled')
-            options.add_experimental_option("excludeSwitches", ["enable-automation"])
-            options.add_experimental_option('useAutomationExtension', False)
-            
-            # Install ChromeDriver
-            driver_path = ChromeDriverManager().install()
-            driver_dir = os.path.dirname(driver_path)
-            
-            # Find the actual chromedriver executable
-            chromedriver_path = None
-            for root, dirs, files in os.walk(driver_dir):
-                for file in files:
-                    if file == 'chromedriver':
-                        chromedriver_path = os.path.join(root, file)
-                        break
-            
-            if not chromedriver_path:
-                raise Exception("Could not find chromedriver executable")
-            
-            # Make sure it's executable
-            os.chmod(chromedriver_path, 0o755)
-            logger.info(f"ChromeDriver path: {chromedriver_path}")
-            
-            service = Service(executable_path=chromedriver_path)
-            self.driver = webdriver.Chrome(service=service, options=options)
-            
-            # Execute CDP commands to prevent detection
-            self.driver.execute_cdp_cmd('Network.setUserAgentOverride', {
-                "userAgent": 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36'
-            })
-            self.driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
-            
-            self.driver.implicitly_wait(10)
-            logger.info("WebDriver setup complete")
-        except Exception as e:
-            logger.error(f"Error setting up WebDriver: {str(e)}")
-            raise
+        CHROMEDRIVER_PATH = os.path.expanduser(
+            '~/.wdm/drivers/chromedriver/linux64/138.0.7204.94/chromedriver-linux64/chromedriver'
+        )
+        # Ensure chromedriver is executable
+        os.chmod(CHROMEDRIVER_PATH, 0o755)
+        options = Options()
+        options.add_argument('--headless')
+        options.add_argument('--no-sandbox')
+        options.add_argument('--disable-dev-shm-usage')
+        self.driver = webdriver.Chrome(service=Service(CHROMEDRIVER_PATH), options=options)
 
     def construct_linkedin_url(self, search_query, location=None, start=0):
         base_url = "https://www.linkedin.com/jobs/search?"
@@ -90,20 +50,17 @@ class LinkedInJobScraper:
         logger.info(f"Constructed URL: {url}")
         return url
 
-    def wait_and_get_element(self, by, value, timeout=20, multiple=False):
+    def wait_and_get_element(self, by, value, timeout=60, multiple=False):
         try:
             if multiple:
-                elements = WebDriverWait(self.driver, timeout).until(
-                    EC.presence_of_all_elements_located((by, value))
-                )
+                elements = self.driver.find_elements(by, value)
                 return elements
             else:
-                element = WebDriverWait(self.driver, timeout).until(
-                    EC.presence_of_element_located((by, value))
-                )
+                element = self.driver.find_element(by, value)
                 return element
         except TimeoutException:
             logger.warning(f"Timeout waiting for element: {value}")
+            self.driver.quit()
             return [] if multiple else None
 
     def scroll_to_element(self, element):
@@ -129,6 +86,7 @@ class LinkedInJobScraper:
                     )
                     if job_cards:
                         logger.info(f"Found job cards using selector: {selector}")
+
                         return job_cards
                 
                 retries -= 1
@@ -136,7 +94,6 @@ class LinkedInJobScraper:
             except Exception as e:
                 logger.error(f"Error finding job cards: {e}")
                 retries -= 1
-        
         return []
 
     def scrape_jobs(self, search_query, location=None, num_jobs=8):
@@ -152,7 +109,7 @@ class LinkedInJobScraper:
             
             # Add timeout mechanism
             start_time = time.time()
-            timeout = 60  # 60 seconds timeout
+            timeout = 60  # 90 seconds timeout
 
             while len(jobs) < num_jobs and pages_without_new_jobs < max_pages_without_new_jobs:
                 # Check if timeout reached

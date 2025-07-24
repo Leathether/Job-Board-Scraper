@@ -118,6 +118,27 @@ export default function Home() {
             </div>
           </div>
         </form>
+        {/* Progress Bar */}
+        {loading && (
+          <div className="bg-white p-4 rounded-lg shadow-sm mb-6">
+            <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+              <div 
+                className="bg-blue-600 h-2 rounded-full animate-progress"
+                style={{
+                  width: '0%',
+                  animation: 'progress 90s ease-out forwards'
+                }}
+              ></div>
+            </div>
+            <p className="text-sm text-gray-600 mt-2 text-center">Searching for jobs...</p>
+            <style jsx>{`
+              @keyframes progress {
+                from { width: 0%; }
+                to { width: 100%; }
+              }
+            `}</style>
+          </div>
+        )}
 
         {/* Search Stats */}
         {searchStats && !loading && !error && (

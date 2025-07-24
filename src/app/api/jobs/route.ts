@@ -1,9 +1,36 @@
 import { NextResponse } from 'next/server';
 
+// Create a persistent rate limiter Map outside the function
+const rateLimiter = new Map();
+
 export async function POST(request: Request) {
   try {
     const body = await request.json();
     const { query, location } = body;
+    
+    try {
+      const ip = request.headers.get('x-forwarded-for') || 'unknown';
+      const ipKey = `ip:${ip}`;
+      const window = 100000; // 100 seconds
+      const limit = 1; // 1 requests per 100 seconds
+      
+      if (rateLimiter.has(ipKey)) {
+        const lastRequestTime = rateLimiter.get(ipKey);
+        if (Date.now() - lastRequestTime < window) {
+          return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 });
+        }
+      }
+      
+      // Update the rate limiter with current request time
+      rateLimiter.set(ipKey, Date.now());
+      
+    } catch (error) {
+      console.error('Error in rate limiting:', error);
+      return NextResponse.json(
+        { error: error instanceof Error ? error.message : 'Failed to process rate limiting' },
+        { status: 500 }
+      );
+    }
 
     if (!query) {
       return NextResponse.json(
