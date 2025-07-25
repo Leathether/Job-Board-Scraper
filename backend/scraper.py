@@ -25,16 +25,71 @@ class LinkedInJobScraper:
         self.jobs_per_page = 25
 
     def setup_driver(self):
-        CHROMEDRIVER_PATH = os.path.expanduser(
-            '~/.wdm/drivers/chromedriver/linux64/138.0.7204.94/chromedriver-linux64/chromedriver'
-        )
-        # Ensure chromedriver is executable
-        os.chmod(CHROMEDRIVER_PATH, 0o755)
-        options = Options()
-        options.add_argument('--headless')
-        options.add_argument('--no-sandbox')
-        options.add_argument('--disable-dev-shm-usage')
-        self.driver = webdriver.Chrome(service=Service(CHROMEDRIVER_PATH), options=options)
+        try:
+            options = Options()
+            options.add_argument('--headless')
+            options.add_argument('--no-sandbox')
+            options.add_argument('--disable-dev-shm-usage')
+            options.add_argument('--disable-gpu')
+            options.add_argument('--disable-extensions')
+            options.add_argument('--disable-plugins')
+            options.add_argument('--disable-images')
+            options.add_argument('--disable-javascript')
+            options.add_argument('--blink-settings=imagesEnabled=false')
+            options.add_argument('--remote-debugging-port=9222')
+            options.add_argument('--disable-web-security')
+            options.add_argument('--allow-running-insecure-content')
+            options.add_argument('--disable-features=VizDisplayCompositor')
+            
+            # Try multiple Chrome/Chromium binaries
+            chrome_binaries = [
+                '/usr/bin/google-chrome-stable',
+                '/usr/bin/google-chrome',
+                '/usr/bin/chromium-browser',
+                '/usr/bin/chromium',
+                '/snap/bin/chromium',
+                '/usr/bin/chrome',
+            ]
+            
+            chrome_found = False
+            for binary in chrome_binaries:
+                if os.path.exists(binary):
+                    options.binary_location = binary
+                    chrome_found = True
+                    logger.info(f"Found Chrome/Chromium at: {binary}")
+                    break
+            
+            if not chrome_found:
+                logger.warning("No Chrome/Chromium binary found, trying default")
+            
+            # Try to create the driver
+            try:
+                self.driver = webdriver.Chrome(options=options)
+                logger.info("Chrome WebDriver setup successful")
+            except Exception as chrome_error:
+                logger.warning(f"Chrome failed: {chrome_error}")
+                
+                # Fallback: Try with webdriver-manager
+                try:
+                    logger.info("Trying webdriver-manager fallback...")
+                    service = Service(ChromeDriverManager().install())
+                    self.driver = webdriver.Chrome(service=service, options=options)
+                    logger.info("WebDriver-manager fallback successful")
+                except Exception as wdm_error:
+                    logger.error(f"WebDriver-manager also failed: {wdm_error}")
+                    
+                    # Final fallback: Try without service
+                    try:
+                        logger.info("Trying final fallback...")
+                        self.driver = webdriver.Chrome(options=options)
+                        logger.info("Final fallback successful")
+                    except Exception as final_error:
+                        logger.error(f"All Chrome setup attempts failed: {final_error}")
+                        raise Exception(f"Could not setup Chrome WebDriver. Please install Chrome/Chromium: sudo apt install -y chromium-browser")
+                        
+        except Exception as e:
+            logger.error(f"Failed to setup Chrome WebDriver: {str(e)}")
+            raise
 
     def construct_linkedin_url(self, search_query, location=None, start=0):
         base_url = "https://www.linkedin.com/jobs/search?"
