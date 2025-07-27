@@ -41,7 +41,7 @@ class LinkedInJobScraper:
             options.add_argument('--allow-running-insecure-content')
             options.add_argument('--disable-features=VizDisplayCompositor')
             
-            # Try multiple Chrome/Chromium binaries
+            # Try multiple Chrome/Chromium binaries with better detection
             chrome_binaries = [
                 '/usr/bin/google-chrome-stable',
                 '/usr/bin/google-chrome',
@@ -49,6 +49,7 @@ class LinkedInJobScraper:
                 '/usr/bin/chromium',
                 '/snap/bin/chromium',
                 '/usr/bin/chrome',
+                '/usr/bin/chromium-browser-stable',
             ]
             
             chrome_found = False
@@ -60,10 +61,25 @@ class LinkedInJobScraper:
                     break
             
             if not chrome_found:
+                logger.warning("No Chrome/Chromium binary found in standard locations")
+                # Try to find it using which command
+                try:
+                    import subprocess
+                    result = subprocess.run(['which', 'chromium-browser'], capture_output=True, text=True)
+                    if result.returncode == 0:
+                        binary_path = result.stdout.strip()
+                        options.binary_location = binary_path
+                        chrome_found = True
+                        logger.info(f"Found Chrome/Chromium using 'which': {binary_path}")
+                except Exception as e:
+                    logger.warning(f"Could not find Chrome/Chromium using 'which': {e}")
+            
+            if not chrome_found:
                 logger.warning("No Chrome/Chromium binary found, trying default")
             
             # Try to create the driver
             try:
+                logger.info("Attempting to create Chrome WebDriver...")
                 self.driver = webdriver.Chrome(options=options)
                 logger.info("Chrome WebDriver setup successful")
             except Exception as chrome_error:
