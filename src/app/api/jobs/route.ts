@@ -40,7 +40,7 @@ export async function POST(request: Request) {
     }
 
     // Forward the request to our Python scraper server
-    const response = await fetch('http://localhost:8000/jobs/', {
+    const response = await fetch('http://127.0.0.1:8000/jobs/', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
