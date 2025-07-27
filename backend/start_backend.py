@@ -5,6 +5,25 @@ import subprocess
 import venv
 from pathlib import Path
 
+def install_system_dependencies():
+    """Install system dependencies if needed"""
+    print("Checking system dependencies...")
+    
+    # Check if Chromium is installed
+    chromium_check = subprocess.run(['which', 'chromium-browser'], capture_output=True, text=True)
+    xvfb_check = subprocess.run(['which', 'xvfb'], capture_output=True, text=True)
+    
+    if chromium_check.returncode != 0 or xvfb_check.returncode != 0:
+        print("⚠️  System dependencies missing (Chromium or X11 tools)")
+        print("Please run the following command manually as root or with sudo:")
+        print("sudo apt update && sudo apt install -y chromium-browser chromium-chromedriver xvfb x11-utils xauth libxss1 libappindicator1 libindicator7")
+        print("Or run: ./install_dependencies.sh")
+        print("Continuing without system dependencies...")
+        return False
+    else:
+        print("✅ System dependencies already installed.")
+        return True
+
 def main():
     print("Starting LinkedIn Job Scraper Backend Server...")
     
@@ -16,6 +35,16 @@ def main():
     if not (backend_dir / "server.py").exists():
         print("Error: server.py not found. Please run this script from the backend directory.")
         sys.exit(1)
+    
+    # Install system dependencies
+    deps_installed = install_system_dependencies()
+    
+    if not deps_installed:
+        print("\n⚠️  Warning: System dependencies are missing.")
+        print("The server will start but may fail when trying to scrape jobs.")
+        print("To install dependencies, run: ./install_dependencies.sh")
+        print("Or manually: sudo apt install -y chromium-browser xvfb")
+        print("\nContinuing with server startup...\n")
     
     # Remove existing venv if it's corrupted
     if venv_path.exists():
