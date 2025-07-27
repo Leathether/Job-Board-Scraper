@@ -65,10 +65,10 @@ class LinkedInJobScraper:
             
             # Try multiple Chrome/Chromium binaries with better detection
             chrome_binaries = [
-                '/usr/bin/google-chrome-stable',
-                '/usr/bin/google-chrome',
                 '/usr/bin/chromium-browser',
                 '/usr/bin/chromium',
+                '/usr/bin/google-chrome-stable',
+                '/usr/bin/google-chrome',
                 '/snap/bin/chromium',
                 '/usr/bin/chrome',
                 '/usr/bin/chromium-browser-stable',
@@ -99,23 +99,50 @@ class LinkedInJobScraper:
             if not chrome_found:
                 logger.warning("No Chrome/Chromium binary found, trying default")
             
-            # Use webdriver-manager by default for better reliability
+            # Try to use system ChromeDriver first
             try:
-                logger.info("Using webdriver-manager to setup Chrome WebDriver...")
-                service = Service(ChromeDriverManager().install())
-                self.driver = webdriver.Chrome(service=service, options=options)
-                logger.info("Chrome WebDriver setup successful with webdriver-manager")
-            except Exception as wdm_error:
-                logger.warning(f"WebDriver-manager failed: {wdm_error}")
+                logger.info("Trying system ChromeDriver...")
+                # Check if system chromedriver exists
+                chromedriver_paths = [
+                    '/usr/bin/chromedriver',
+                    '/usr/bin/chromium-chromedriver',
+                    '/usr/local/bin/chromedriver'
+                ]
                 
-                # Fallback: Try without service
+                chromedriver_found = None
+                for path in chromedriver_paths:
+                    if os.path.exists(path):
+                        chromedriver_found = path
+                        break
+                
+                if chromedriver_found:
+                    logger.info(f"Using system ChromeDriver at: {chromedriver_found}")
+                    service = Service(chromedriver_found)
+                    self.driver = webdriver.Chrome(service=service, options=options)
+                    logger.info("Chrome WebDriver setup successful with system ChromeDriver")
+                else:
+                    raise Exception("No system ChromeDriver found")
+                    
+            except Exception as system_error:
+                logger.warning(f"System ChromeDriver failed: {system_error}")
+                
+                # Fallback: Try webdriver-manager
                 try:
-                    logger.info("Trying fallback without service...")
-                    self.driver = webdriver.Chrome(options=options)
-                    logger.info("Chrome WebDriver setup successful without service")
-                except Exception as final_error:
-                    logger.error(f"All Chrome setup attempts failed: {final_error}")
-                    raise Exception(f"Could not setup Chrome WebDriver. Please install Chrome/Chromium: sudo apt install -y chromium-browser")
+                    logger.info("Trying webdriver-manager...")
+                    service = Service(ChromeDriverManager().install())
+                    self.driver = webdriver.Chrome(service=service, options=options)
+                    logger.info("Chrome WebDriver setup successful with webdriver-manager")
+                except Exception as wdm_error:
+                    logger.warning(f"WebDriver-manager failed: {wdm_error}")
+                    
+                    # Final fallback: Try without service
+                    try:
+                        logger.info("Trying fallback without service...")
+                        self.driver = webdriver.Chrome(options=options)
+                        logger.info("Chrome WebDriver setup successful without service")
+                    except Exception as final_error:
+                        logger.error(f"All Chrome setup attempts failed: {final_error}")
+                        raise Exception(f"Could not setup Chrome WebDriver. Please install Chrome/Chromium: sudo apt install -y chromium-browser")
                         
         except Exception as e:
             logger.error(f"Failed to setup Chrome WebDriver: {str(e)}")
