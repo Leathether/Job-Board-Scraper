@@ -1,16 +1,16 @@
 {
   "name": "linkedin-job-scraper",
   "version": "0.1.0",
-  "private": true,
+  "private": true, 
   "scripts": {
     "dev": "concurrently \"npm run dev:frontend\" \"npm run dev:backend\"",
     "dev:frontend": "next dev -p 3001",
-    "dev:backend": "cd backend && python3 -m venv venv && . venv/bin/activate && pip install -r requirements.txt && python server.py",
+    "dev:backend": "cd backend && python3 start_backend.py",
     "build": "next build",
     "start": "next start -p 3001",
-    "deploy": "npm run build && concurrently \"npm run start\" \"cd backend && python3 -m venv venv && . venv/bin/activate && pip install -r requirements.txt && python server.py\"",
+    "deploy": "npm run build && concurrently \"npm run start\" \"cd backend && python3 start_backend.py\"",
     "lint": "next lint",
-    "setup": "npm install && cd backend && python3 -m venv venv && . venv/bin/activate && pip install -r requirements.txt"
+    "setup": "npm install && cd backend && python3 start_backend.py"
   },
   "dependencies": {
     "express-rate-limit": "^8.0.1",
