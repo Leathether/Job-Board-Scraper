@@ -16,6 +16,14 @@ import glob
 import random
 from selenium.webdriver.chrome.options import Options
 
+# Import virtual display for headless servers
+try:
+    from pyvirtualdisplay import Display
+    VIRTUAL_DISPLAY_AVAILABLE = True
+except ImportError:
+    VIRTUAL_DISPLAY_AVAILABLE = False
+    logging.warning("pyvirtualdisplay not available. Virtual display will not be used.")
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -23,9 +31,21 @@ class LinkedInJobScraper:
     def __init__(self):
         self.driver = None
         self.jobs_per_page = 25
+        self.virtual_display = None
 
     def setup_driver(self):
         try:
+            # Setup virtual display for headless servers
+            if VIRTUAL_DISPLAY_AVAILABLE:
+                try:
+                    logger.info("Setting up virtual display...")
+                    self.virtual_display = Display(visible=0, size=(1920, 1080))
+                    self.virtual_display.start()
+                    logger.info("Virtual display started successfully")
+                except Exception as e:
+                    logger.warning(f"Failed to setup virtual display: {e}")
+                    self.virtual_display = None
+            
             options = Options()
             options.add_argument('--headless')
             options.add_argument('--no-sandbox')
@@ -40,6 +60,8 @@ class LinkedInJobScraper:
             options.add_argument('--disable-web-security')
             options.add_argument('--allow-running-insecure-content')
             options.add_argument('--disable-features=VizDisplayCompositor')
+            options.add_argument('--window-size=1920,1080')
+            options.add_argument('--start-maximized')
             
             # Try multiple Chrome/Chromium binaries with better detection
             chrome_binaries = [
@@ -77,31 +99,23 @@ class LinkedInJobScraper:
             if not chrome_found:
                 logger.warning("No Chrome/Chromium binary found, trying default")
             
-            # Try to create the driver
+            # Use webdriver-manager by default for better reliability
             try:
-                logger.info("Attempting to create Chrome WebDriver...")
-                self.driver = webdriver.Chrome(options=options)
-                logger.info("Chrome WebDriver setup successful")
-            except Exception as chrome_error:
-                logger.warning(f"Chrome failed: {chrome_error}")
+                logger.info("Using webdriver-manager to setup Chrome WebDriver...")
+                service = Service(ChromeDriverManager().install())
+                self.driver = webdriver.Chrome(service=service, options=options)
+                logger.info("Chrome WebDriver setup successful with webdriver-manager")
+            except Exception as wdm_error:
+                logger.warning(f"WebDriver-manager failed: {wdm_error}")
                 
-                # Fallback: Try with webdriver-manager
+                # Fallback: Try without service
                 try:
-                    logger.info("Trying webdriver-manager fallback...")
-                    service = Service(ChromeDriverManager().install())
-                    self.driver = webdriver.Chrome(service=service, options=options)
-                    logger.info("WebDriver-manager fallback successful")
-                except Exception as wdm_error:
-                    logger.error(f"WebDriver-manager also failed: {wdm_error}")
-                    
-                    # Final fallback: Try without service
-                    try:
-                        logger.info("Trying final fallback...")
-                        self.driver = webdriver.Chrome(options=options)
-                        logger.info("Final fallback successful")
-                    except Exception as final_error:
-                        logger.error(f"All Chrome setup attempts failed: {final_error}")
-                        raise Exception(f"Could not setup Chrome WebDriver. Please install Chrome/Chromium: sudo apt install -y chromium-browser")
+                    logger.info("Trying fallback without service...")
+                    self.driver = webdriver.Chrome(options=options)
+                    logger.info("Chrome WebDriver setup successful without service")
+                except Exception as final_error:
+                    logger.error(f"All Chrome setup attempts failed: {final_error}")
+                    raise Exception(f"Could not setup Chrome WebDriver. Please install Chrome/Chromium: sudo apt install -y chromium-browser")
                         
         except Exception as e:
             logger.error(f"Failed to setup Chrome WebDriver: {str(e)}")
@@ -294,16 +308,36 @@ class LinkedInJobScraper:
             logger.info(f"Completed scraping with {len(jobs)} jobs found")
             return jobs
 
-        except Exception as e:
-            logger.error(f"Error during scraping: {str(e)}")
-            return jobs
-
         finally:
             if self.driver:
                 try:
                     self.driver.quit()
                 except Exception as e:
                     logger.error(f"Error closing WebDriver: {str(e)}")
+            
+            # Clean up virtual display
+            if self.virtual_display:
+                try:
+                    self.virtual_display.stop()
+                    logger.info("Virtual display stopped")
+                except Exception as e:
+                    logger.error(f"Error stopping virtual display: {str(e)}")
+
+    def cleanup(self):
+        """Clean up resources"""
+        if self.driver:
+            try:
+                self.driver.quit()
+                logger.info("WebDriver closed")
+            except Exception as e:
+                logger.error(f"Error closing WebDriver: {str(e)}")
+        
+        if self.virtual_display:
+            try:
+                self.virtual_display.stop()
+                logger.info("Virtual display stopped")
+            except Exception as e:
+                logger.error(f"Error stopping virtual display: {str(e)}")
 
     def save_to_file(self, jobs, filename="jobs.json"):
         with open(filename, 'w', encoding='utf-8') as f:
