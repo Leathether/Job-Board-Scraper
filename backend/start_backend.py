@@ -21,9 +21,10 @@ def main():
     if not venv_path.exists():
         print("Creating virtual environment...")
         try:
-            venv.create(venv_path, with_pip=True)
+            # Use python3 -m venv instead of venv.create() for better reliability
+            subprocess.run([sys.executable, "-m", "venv", str(venv_path)], check=True)
             print("Virtual environment created successfully.")
-        except Exception as e:
+        except subprocess.CalledProcessError as e:
             print(f"Error creating virtual environment: {e}")
             sys.exit(1)
     
@@ -34,6 +35,18 @@ def main():
     else:  # Unix/Linux
         pip_path = venv_path / "bin" / "pip"
         python_path = venv_path / "bin" / "python"
+    
+    # Check if pip exists, if not, install it
+    if not pip_path.exists():
+        print("Pip not found in virtual environment, installing...")
+        try:
+            # Use ensurepip to install pip
+            subprocess.run([str(python_path), "-m", "ensurepip", "--upgrade"], 
+                          check=True, cwd=backend_dir)
+            print("Pip installed successfully.")
+        except subprocess.CalledProcessError as e:
+            print(f"Error installing pip: {e}")
+            sys.exit(1)
     
     # Install requirements
     print("Installing Python requirements...")
